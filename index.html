@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PFAS Exposure Index — MCH Law</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    /* MCH Law palette. --accent is a placeholder brass; swap for MCH's exact hex. */
+    --navy:#0a1628; --navy-soft:#14263e; --accent:#be9a4e; --accent-deep:#8f7231;
+    --pale:#f1e6c9; --paper:#eef1f4; --card:#fff; --line:#dde3e9;
+    --mute:#5f7185; --flag:#b0763a; --flag-bg:#fbf3e7; --tier3:#e9eef1;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:var(--sans);color:var(--navy);background:var(--paper);-webkit-font-smoothing:antialiased;padding:22px 14px 40px;}
+  .wrap{max-width:880px;margin:0 auto;}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+  .header{background:var(--navy);border-radius:14px;padding:22px 22px 18px;color:#fff;}
+  .kicker{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:700;}
+  .header-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .mch-logo{height:36px;width:auto;max-width:160px;display:block;flex:none;}
+  .title{font-family:var(--serif);font-size:27px;line-height:1.1;margin:7px 0 6px;font-weight:600;letter-spacing:-.01em;}
+  .sub{font-size:13.5px;line-height:1.5;color:#c4d1dc;max-width:640px;margin:0;}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:15px;padding-top:14px;border-top:1px solid #22354c;}
+  .legend span{font-size:11.5px;color:#9fb2c2;}
+  .legend b{font-family:var(--mono);color:var(--accent);font-weight:600;}
+  .actions{display:flex;gap:16px;margin-top:14px;align-items:center;}
+  .link{background:none;border:none;color:var(--accent);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;font-family:var(--sans);}
+  .link:hover{color:#d2b262;}
+
+  .meta{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;}
+  .metafield{display:flex;flex-direction:column;gap:4px;flex:1 1 240px;}
+
+  .lbl{font-size:11px;color:var(--mute);font-weight:600;}
+  .input{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--navy);background:#fff;outline:none;transition:border-color .12s,box-shadow .12s;font-family:var(--sans);width:100%;}
+  .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(190,154,78,.28);}
+  .input.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 16px 14px;margin-top:14px;}
+  .crow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .idx{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);font-weight:700;padding-bottom:8px;white-space:nowrap;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field.name{flex:1 1 200px;min-width:160px;}
+  .years{width:88px;}
+  .rowbtns{margin-left:auto;display:flex;gap:8px;align-items:center;}
+  .clr,.rm{background:none;border:1px solid var(--line);color:var(--mute);font-size:12px;border-radius:7px;padding:6px 10px;cursor:pointer;font-family:var(--sans);transition:all .12s;}
+  .clr:hover{border-color:var(--accent);color:var(--accent-deep);}
+  .rm:hover{border-color:var(--flag);color:var(--flag);}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:14px;}
+  @media(min-width:700px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+  .cell{border:1px solid var(--line);border-radius:9px;padding:9px 10px 8px;background:#fcfdfe;}
+  .cell-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .cmp{font-weight:700;font-size:13px;color:var(--navy);}
+  .ref{font-size:10px;color:var(--mute);font-family:var(--mono);}
+  .hq{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:11px;color:var(--mute);}
+  .hqv{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:#b6c2cc;}
+  .hqv.on{color:var(--accent-deep);}
+  .bar{height:3px;border-radius:3px;background:#e6ecf0;margin-top:5px;overflow:hidden;}
+  .bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .25s ease;}
+
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:14px;}
+  .seg button{background:#fff;border:none;padding:7px 12px;font-size:12px;color:var(--mute);cursor:pointer;font-family:var(--sans);transition:all .12s;}
+  .seg button + button{border-left:1px solid var(--line);}
+  .seg button[aria-pressed="true"]{background:var(--navy);color:#fff;font-weight:600;}
+  .seg button[aria-pressed="true"].warn{background:var(--flag);}
+
+  .resbar{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:13px;color:var(--mute);}
+  .resbar .num{color:var(--navy);font-weight:600;}
+  .resbar .final{color:var(--accent-deep);font-size:15px;}
+
+  .add{width:100%;margin-top:14px;background:#fff;border:1.5px dashed var(--accent);color:var(--accent-deep);font-weight:600;font-size:13.5px;padding:12px;border-radius:11px;cursor:pointer;font-family:var(--sans);transition:all .12s;}
+  .add:hover{background:var(--pale);}
+
+  .total{background:var(--navy);border-radius:14px;margin-top:18px;overflow:hidden;}
+  .total-main{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 22px;}
+  .ei-lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;}
+  .ei{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:46px;line-height:1;color:var(--accent);font-weight:600;letter-spacing:-.02em;margin-top:6px;}
+  .ei-unit{font-size:14px;color:#9fb2c2;margin-left:9px;font-family:var(--sans);font-weight:400;}
+  .tier{font-family:var(--serif);font-size:19px;font-weight:600;padding:11px 20px;border-radius:10px;}
+  .total-foot{background:var(--navy-soft);padding:14px 22px;display:flex;flex-wrap:wrap;gap:16px 26px;align-items:center;}
+  .thr{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#c4d1dc;}
+  .thr input{width:66px;border:1px solid #33506b;background:var(--navy);color:var(--accent);border-radius:7px;padding:5px 8px;font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-size:13px;outline:none;}
+  .thr input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(190,154,78,.3);}
+  .btn-gold{background:var(--accent);color:var(--navy);border:none;font-weight:700;padding:11px 18px;border-radius:9px;cursor:pointer;font-family:var(--sans);font-size:13.5px;transition:background .12s;margin-left:auto;}
+  .btn-gold:hover{background:#ceac5f;}
+  .note{font-size:11.5px;color:#9fb2c2;line-height:1.5;flex:1 1 220px;min-width:200px;}
+
+  .flag{display:flex;gap:8px;align-items:flex-start;background:var(--flag-bg);border:1px solid #eddcc3;border-left:3px solid var(--flag);border-radius:8px;padding:9px 11px;margin-top:12px;font-size:12.5px;color:#6b4a1e;line-height:1.45;}
+  .flag[hidden]{display:none;}
+
+  .foot{margin-top:20px;display:flex;flex-direction:column;gap:12px;}
+  .cav{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--mute);line-height:1.55;}
+  .cav b{color:var(--navy);}
+  .sig{text-align:center;font-size:11px;color:var(--mute);margin-top:18px;letter-spacing:.04em;}
+
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+  @media print{
+    body{background:#fff;padding:0;}
+    .noprint{display:none!important;}
+    .header,.total{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <div class="header-top">
+      <div class="kicker">MCH Law, PLLC · Docket Tiering</div>
+      <img class="mch-logo" src="https://static.wixstatic.com/media/8aed94_e4bdf8ca8aa747edbf7594b5b305b4b7~mv2.png" alt="MCH Law, PLLC" onerror="this.style.display='none'" />
+    </div>
+    <h1 class="title">PFAS Exposure Index</h1>
+    <p class="sub">A potency-weighted cumulative-dose score. Each compound is divided by its
+      health-based reference (a Hazard Quotient), the quotients are summed into a Hazard Index,
+      and that is multiplied by years of residence — then summed across every address.
+      Higher = stronger, longer exposure.</p>
+    <div class="legend" id="legend"></div>
+    <div class="actions noprint">
+      <button class="link" id="loadExample">Load example</button>
+      <button class="link" id="clearAll">Clear all</button>
+      <button class="link" id="exportTop">Export PDF ↓</button>
+    </div>
+  </header>
+
+  <div class="meta">
+    <div class="metafield">
+      <label class="lbl" for="claimant">Claimant / file</label>
+      <input class="input" id="claimant" placeholder="e.g. Doe, Jane — file 2026-0417" />
+    </div>
+    <div class="metafield">
+      <label class="lbl" for="matter">Matter / docket ID</label>
+      <input class="input" id="matter" placeholder="optional" />
+    </div>
+  </div>
+
+  <div id="residences"></div>
+
+  <button class="add noprint" id="addResidence">+ Add residence</button>
+
+  <div class="total">
+    <div class="total-main">
+      <div>
+        <div class="ei-lbl">Exposure Index</div>
+        <div class="ei"><span id="ei">0.0</span><span class="ei-unit">HI-years</span></div>
+      </div>
+      <div class="tier" id="tierChip">Tier 3</div>
+    </div>
+    <div class="total-foot">
+      <div class="thr">Tier 1 ≥ <input type="number" min="0" id="tier1" value="125" /></div>
+      <div class="thr">Tier 2 ≥ <input type="number" min="0" id="tier2" value="25" /></div>
+      <button class="btn-gold noprint" id="exportPDF">Export PDF</button>
+      <p class="note">Cutoffs are placeholders — recalibrate on your docket's HI-year distribution.
+        One HI-year = a full year at exactly the health-based reference for a single compound.</p>
+    </div>
+  </div>
+
+  <div class="flag" id="floorFlag" hidden>
+    <span aria-hidden="true">▲</span>
+    <span><b>Below the PFOA/PFOS floor.</b> Neither PFOA nor PFOS reached its 4 ppt MCL at any
+      residence. These are the strongest-causation compounds — treat this as a weak-exposure file
+      and consider screening before tiering.</span>
+  </div>
+  <div class="flag" id="lowConf" hidden>
+    <span aria-hidden="true">▲</span>
+    <span><b>Low-confidence data.</b> At least one residence uses a peak or single-sample reading
+      rather than a time-weighted average. Verify against annual-average supplier data before
+      relying on the tier.</span>
+  </div>
+
+  <div class="foot">
+    <div class="cav"><b>Exposure only.</b> This scores contamination and duration — not injury.
+      Combine it with a diagnosis and causation axis before valuing a case, so a deep-exposure
+      claimant with a non-linked condition doesn't outrank a moderate-exposure claimant with
+      kidney or testicular cancer.</div>
+    <div class="cav"><b>Regulatory status.</b> The PFOA and PFOS MCLs (4 ppt) are upheld. The 10 ppt
+      individual limits and the Hazard Index are under a proposed EPA rescission (comment period
+      closed July 20, 2026; final action expected in 2026). The method rests on health-based
+      reference values and standard mixtures toxicology, which survive the rulemaking — but in
+      public content, don't cite 10 ppt as a current federal limit without noting the pending
+      rescission.</div>
+  </div>
+
+  <div class="sig">MCH Law, PLLC · internal tooling</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var COMPOUNDS = [
+    { key:"pfoa",  label:"PFOA",  ref:4,    note:"MCL 4 ppt" },
+    { key:"pfos",  label:"PFOS",  ref:4,    note:"MCL 4 ppt" },
+    { key:"pfhxs", label:"PFHxS", ref:10,   note:"10 ppt" },
+    { key:"pfna",  label:"PFNA",  ref:10,   note:"10 ppt" },
+    { key:"genx",  label:"GenX",  ref:10,   note:"HFPO-DA · 10 ppt" },
+    { key:"pfbs",  label:"PFBS",  ref:2000, note:"2,000 ppt" }
+  ];
+
+  var RID = 1;
+  function emptyConc(){ return { pfoa:"", pfos:"", pfhxs:"", pfna:"", genx:"", pfbs:"" }; }
+  function newResidence(name){ return { id:RID++, name:name||"", years:"", conc:emptyConc(), confidence:"twa" }; }
+
+  var state = { residences:[ newResidence() ], tier1:"125", tier2:"25", claimant:"", matter:"" };
+
+  /* MCH logo — preloaded to a data URI so the PDF can embed it. Needs the CDN to send
+     CORS headers; if it doesn't, the PDF simply omits the mark and keeps the text wordmark. */
+  var MCH_LOGO_URL = "https://static.wixstatic.com/media/8aed94_e4bdf8ca8aa747edbf7594b5b305b4b7~mv2.png";
+  var mchLogoData = null, mchLogoRatio = 3.2;
+  (function preloadLogo(){
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function(){
+      try{
+        var cv = document.createElement("canvas");
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext("2d").drawImage(img, 0, 0);
+        mchLogoData = cv.toDataURL("image/png");
+        if(img.naturalHeight) mchLogoRatio = img.naturalWidth / img.naturalHeight;
+      }catch(e){ mchLogoData = null; }
+    };
+    img.onerror = function(){ mchLogoData = null; };
+    img.src = MCH_LOGO_URL;
+  })();
+
+  function num(v){ var n = parseFloat(v); return (isFinite(n) && n>0) ? n : 0; }
+  function fmt(n,d){ if(d==null)d=1; return isFinite(n) ? n.toFixed(d) : (0).toFixed(d); }
+  function fmtYears(y){ return (y % 1) ? y.toFixed(1) : String(y); }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  /* ---- pure model ---- */
+  function computeModel(){
+    var rows = state.residences.map(function(r){
+      var hqs = COMPOUNDS.map(function(c){
+        var conc = num(r.conc[c.key]);
+        return { key:c.key, label:c.label, ref:c.ref, conc:conc, hq: conc / c.ref };
+      });
+      var hi = hqs.reduce(function(s,x){ return s + x.hq; }, 0);
+      var years = num(r.years);
+      var hasData = hqs.some(function(x){ return x.conc > 0; });
+      return { r:r, hqs:hqs, hi:hi, years:years, hy: hi*years, hasData:hasData };
+    });
+    var ei=0, anyData=false, maxPP=0, lowConf=false;
+    rows.forEach(function(row){
+      ei += row.hy;
+      if(row.hasData) anyData = true;
+      maxPP = Math.max(maxPP, num(row.r.conc.pfoa), num(row.r.conc.pfos));
+      if(row.hasData && row.r.confidence==="peak") lowConf = true;
+    });
+    var t1 = num(state.tier1), t2 = num(state.tier2);
+    var tier = ei>=t1 ? 1 : (ei>=t2 ? 2 : 3);
+    return { rows:rows, ei:ei, tier:tier, floorFlag:(anyData && maxPP<4), lowConf:lowConf, anyData:anyData, t1:t1, t2:t2 };
+  }
+
+  /* ---- rendering ---- */
+  function legendHTML(){
+    return COMPOUNDS.map(function(c){
+      return '<span>'+c.label+' <b>'+c.ref.toLocaleString()+'</b></span>';
+    }).join('') + '<span style="color:var(--mute)">ppt references</span>';
+  }
+
+  function cardHTML(r, i){
+    var cells = COMPOUNDS.map(function(c){
+      return ''
+        + '<div class="cell">'
+        +   '<div class="cell-top"><span class="cmp">'+c.label+'</span><span class="ref">'+esc(c.note)+'</span></div>'
+        +   '<input class="input n" type="number" min="0" step="0.1" inputmode="decimal" '
+        +     'data-rid="'+r.id+'" data-role="conc" data-key="'+c.key+'" '
+        +     'value="'+esc(r.conc[c.key])+'" placeholder="0" aria-label="'+c.label+' concentration in ppt" />'
+        +   '<div class="hq"><span>HQ</span><span class="hqv" id="hq-'+r.id+'-'+c.key+'">0.00</span></div>'
+        +   '<div class="bar"><i id="bar-'+r.id+'-'+c.key+'"></i></div>'
+        + '</div>';
+    }).join('');
+
+    var actionBtns =
+      '<div class="rowbtns">'
+      +   '<button class="clr" data-rid="'+r.id+'" data-role="clear" aria-label="Clear residence '+(i+1)+'">Clear</button>'
+      +   (state.residences.length>1
+            ? '<button class="rm" data-rid="'+r.id+'" data-role="remove" aria-label="Remove residence '+(i+1)+'">Remove</button>'
+            : '')
+      + '</div>';
+
+    return ''
+      + '<section class="card">'
+      +   '<div class="crow">'
+      +     '<span class="idx">Residence '+(i+1)+'</span>'
+      +     '<div class="field name"><label class="lbl" for="nm-'+r.id+'">Address / label</label>'
+      +       '<input class="input" id="nm-'+r.id+'" data-rid="'+r.id+'" data-role="name" value="'+esc(r.name)+'" placeholder="e.g. 14 Elm St · Supplier ABC" /></div>'
+      +     '<div class="field"><label class="lbl" for="yr-'+r.id+'">Years</label>'
+      +       '<input class="input n years" id="yr-'+r.id+'" data-rid="'+r.id+'" data-role="years" type="number" min="0" step="0.5" inputmode="decimal" value="'+esc(r.years)+'" placeholder="0" /></div>'
+      +     actionBtns
+      +   '</div>'
+      +   '<div class="grid">'+cells+'</div>'
+      +   '<div class="seg" role="group" aria-label="Data confidence">'
+      +     '<button data-rid="'+r.id+'" data-role="conf" data-val="twa" aria-pressed="'+(r.confidence==="twa")+'">Time-weighted avg</button>'
+      +     '<button class="warn" data-rid="'+r.id+'" data-role="conf" data-val="peak" aria-pressed="'+(r.confidence==="peak")+'">Peak / single-sample</button>'
+      +   '</div>'
+      +   '<div class="resbar">'
+      +     '<span>Hazard Index <span class="num" id="hi-'+r.id+'">0.00</span></span><span aria-hidden="true">×</span>'
+      +     '<span><span class="num" id="yrs-'+r.id+'">0</span> yr</span><span aria-hidden="true">=</span>'
+      +     '<span><span class="num final" id="hy-'+r.id+'">0.0</span> HI-years</span>'
+      +   '</div>'
+      + '</section>';
+  }
+
+  function renderResidences(){
+    document.getElementById("residences").innerHTML =
+      state.residences.map(cardHTML).join("");
+    recompute();
+  }
+
+  function tierChipStyle(t){
+    var el = document.getElementById("tierChip");
+    el.textContent = "Tier " + t;
+    if(t===1){ el.style.background="var(--accent)"; el.style.color="var(--navy)"; el.style.border="1px solid var(--accent)"; }
+    else if(t===2){ el.style.background="var(--pale)"; el.style.color="var(--navy)"; el.style.border="1px solid var(--accent)"; }
+    else { el.style.background="transparent"; el.style.color="#cbd6de"; el.style.border="1px solid #37506b"; }
+  }
+
+  function recompute(){
+    var m = computeModel();
+    m.rows.forEach(function(row){
+      var id = row.r.id;
+      row.hqs.forEach(function(x){
+        var hqEl = document.getElementById("hq-"+id+"-"+x.key);
+        var barEl = document.getElementById("bar-"+id+"-"+x.key);
+        if(hqEl){ hqEl.textContent = fmt(x.hq,2); hqEl.className = "hqv" + (x.hq>0 ? " on" : ""); }
+        if(barEl){ barEl.style.width = (row.hi>0 ? (x.hq/row.hi*100) : 0) + "%"; }
+      });
+      var hiEl = document.getElementById("hi-"+id);   if(hiEl)  hiEl.textContent = fmt(row.hi,2);
+      var yrEl = document.getElementById("yrs-"+id);  if(yrEl)  yrEl.textContent = fmtYears(row.years);
+      var hyEl = document.getElementById("hy-"+id);   if(hyEl)  hyEl.textContent = fmt(row.hy,1);
+    });
+    document.getElementById("ei").textContent = fmt(m.ei,1);
+    tierChipStyle(m.tier);
+    document.getElementById("floorFlag").hidden = !m.floorFlag;
+    document.getElementById("lowConf").hidden   = !m.lowConf;
+  }
+
+  /* ---- events (delegated) ---- */
+  var container = document.getElementById("residences");
+  container.addEventListener("input", function(e){
+    var t = e.target, rid = +t.getAttribute("data-rid"), role = t.getAttribute("data-role");
+    if(!rid || !role) return;
+    var r = state.residences.filter(function(x){ return x.id===rid; })[0];
+    if(!r) return;
+    if(role==="name")  r.name = t.value;
+    else if(role==="years") r.years = t.value;
+    else if(role==="conc")  r.conc[t.getAttribute("data-key")] = t.value;
+    recompute();
+  });
+  container.addEventListener("click", function(e){
+    var t = e.target, rid = +t.getAttribute("data-rid"), role = t.getAttribute("data-role");
+    if(!rid || !role) return;
+    var r = state.residences.filter(function(x){ return x.id===rid; })[0];
+    if(role==="conf" && r){
+      r.confidence = t.getAttribute("data-val");
+      var seg = t.parentNode.querySelectorAll("button");
+      seg.forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-val")===r.confidence); });
+      recompute();
+    } else if(role==="clear" && r){
+      r.name = ""; r.years = ""; r.conc = emptyConc(); r.confidence = "twa";
+      renderResidences();
+    } else if(role==="remove"){
+      if(state.residences.length>1){
+        state.residences = state.residences.filter(function(x){ return x.id!==rid; });
+        renderResidences();
+      }
+    }
+  });
+
+  document.getElementById("addResidence").addEventListener("click", function(){
+    state.residences.push(newResidence()); renderResidences();
+  });
+  document.getElementById("tier1").addEventListener("input", function(e){ state.tier1 = e.target.value; recompute(); });
+  document.getElementById("tier2").addEventListener("input", function(e){ state.tier2 = e.target.value; recompute(); });
+  document.getElementById("claimant").addEventListener("input", function(e){ state.claimant = e.target.value; });
+  document.getElementById("matter").addEventListener("input", function(e){ state.matter = e.target.value; });
+
+  document.getElementById("loadExample").addEventListener("click", function(){
+    RID = 1;
+    var a = newResidence("Hoosick Falls, NY (example)"); a.conc.pfoa="534"; a.years="5";
+    var b = newResidence("Petersburgh, NY (example)");   b.conc.pfoa="92.5"; b.years="5";
+    state.residences = [a,b];
+    renderResidences();
+  });
+  document.getElementById("clearAll").addEventListener("click", function(){
+    RID = 1;
+    state.residences = [ newResidence() ];
+    state.tier1="125"; state.tier2="25"; state.claimant=""; state.matter="";
+    document.getElementById("tier1").value="125";
+    document.getElementById("tier2").value="25";
+    document.getElementById("claimant").value="";
+    document.getElementById("matter").value="";
+    renderResidences();
+  });
+
+  document.getElementById("exportPDF").addEventListener("click", exportPDF);
+  document.getElementById("exportTop").addEventListener("click", exportPDF);
+
+  /* ---- PDF export (client-side, ASCII-safe text) ---- */
+  function dateStr(){
+    return new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+  }
+  function exportPDF(){
+    var m = computeModel();
+    if(!(window.jspdf && window.jspdf.jsPDF)){ window.print(); return; }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit:"pt", format:"letter" });
+
+    var PW = doc.internal.pageSize.getWidth();
+    var PH = doc.internal.pageSize.getHeight();
+    var M = 48, y = 0;
+    var navy=[10,22,40], accent=[190,154,78], ink=[20,35,49], mute=[95,113,133], line=[221,227,233], deep=[143,114,49];
+
+    function ensure(sp){ if(y + sp > PH - M){ doc.addPage(); y = M; } }
+    function rule(color,w){ color=color||line; w=w||0.7; doc.setDrawColor(color[0],color[1],color[2]); doc.setLineWidth(w); doc.line(M,y,PW-M,y); }
+
+    // header band
+    doc.setFillColor(navy[0],navy[1],navy[2]); doc.rect(0,0,PW,88,"F");
+    doc.setTextColor(accent[0],accent[1],accent[2]); doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+    doc.text("MCH LAW, PLLC  \u00B7  DOCKET TIERING", M, 30);
+    doc.setTextColor(255,255,255); doc.setFont("times","bold"); doc.setFontSize(20);
+    doc.text("PFAS Exposure Assessment", M, 55);
+    // MCH logo, top-right of the band; skipped silently if the CDN blocked canvas export
+    if(mchLogoData){
+      var lgH = 30, lgW = lgH * (mchLogoRatio || 3.2);
+      if(lgW > 160){ lgW = 160; lgH = lgW / (mchLogoRatio || 3.2); }
+      try{ doc.addImage(mchLogoData, "PNG", PW - M - lgW, 20, lgW, lgH); }catch(e){}
+    }
+    var metaBits = [];
+    if(state.claimant) metaBits.push("Claimant: " + state.claimant);
+    if(state.matter)   metaBits.push("Matter: " + state.matter);
+    metaBits.push("Generated " + dateStr());
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(196,209,220);
+    doc.text(metaBits.join("     \u00B7     "), M, 74);
+    y = 112;
+
+    // residences
+    m.rows.forEach(function(row, i){
+      ensure(64);
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(mute[0],mute[1],mute[2]);
+      doc.text("RESIDENCE " + (i+1), M, y);
+      doc.setFont("times","bold"); doc.setFontSize(12); doc.setTextColor(ink[0],ink[1],ink[2]);
+      doc.text(row.r.name || "(unlabeled address)", M, y+15);
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(mute[0],mute[1],mute[2]);
+      doc.text(row.r.confidence==="peak" ? "Peak / single-sample" : "Time-weighted average", PW-M, y+15, {align:"right"});
+      y += 27;
+
+      var xMeas = M+250, xRef = M+375, xHQ = PW-M;
+      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(mute[0],mute[1],mute[2]);
+      doc.text("Compound", M, y);
+      doc.text("Measured (ppt)", xMeas, y, {align:"right"});
+      doc.text("Reference (ppt)", xRef, y, {align:"right"});
+      doc.text("Hazard Quotient", xHQ, y, {align:"right"});
+      y += 6; rule(line,0.6); y += 13;
+
+      row.hqs.forEach(function(x){
+        ensure(15);
+        doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(ink[0],ink[1],ink[2]);
+        doc.text(x.label, M, y);
+        doc.text(x.conc>0 ? x.conc.toLocaleString() : "ND", xMeas, y, {align:"right"});
+        doc.setTextColor(mute[0],mute[1],mute[2]);
+        doc.text(x.ref.toLocaleString(), xRef, y, {align:"right"});
+        doc.setFont("helvetica","bold");
+        if(x.hq>0){ doc.setTextColor(navy[0],navy[1],navy[2]); } else { doc.setTextColor(mute[0],mute[1],mute[2]); }
+        doc.text(x.hq.toFixed(2), xHQ, y, {align:"right"});
+        y += 15;
+      });
+
+      y += 3; rule(line,0.6); y += 15;
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(ink[0],ink[1],ink[2]);
+      doc.text("Hazard Index " + row.hi.toFixed(2) + "   \u00D7   " + fmtYears(row.years) + " yr", M, y);
+      doc.setTextColor(deep[0],deep[1],deep[2]);
+      doc.text("= " + row.hy.toFixed(1) + " HI-years", xHQ, y, {align:"right"});
+      y += 26;
+    });
+
+    // summary box
+    ensure(74);
+    doc.setFillColor(navy[0],navy[1],navy[2]); doc.roundedRect(M, y, PW-2*M, 60, 7, 7, "F");
+    doc.setTextColor(accent[0],accent[1],accent[2]); doc.setFont("helvetica","bold"); doc.setFontSize(8);
+    doc.text("EXPOSURE INDEX", M+18, y+22);
+    doc.setFont("helvetica","bold"); doc.setFontSize(27); doc.setTextColor(accent[0],accent[1],accent[2]);
+    var eiTxt = m.ei.toFixed(1);
+    doc.text(eiTxt, M+18, y+48);
+    var eiW = doc.getTextWidth(eiTxt);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(196,209,220);
+    doc.text("HI-years", M+18+eiW+8, y+48);
+
+    // tier chip
+    var tLabel = "Tier " + m.tier;
+    var chipW = 92, chipH = 30, chipX = PW-M-18-chipW, chipY = y+15;
+    if(m.tier===1){ doc.setFillColor(accent[0],accent[1],accent[2]); doc.setTextColor(navy[0],navy[1],navy[2]); }
+    else if(m.tier===2){ doc.setFillColor(241,230,201); doc.setTextColor(navy[0],navy[1],navy[2]); }
+    else { doc.setFillColor(233,238,241); doc.setTextColor(mute[0],mute[1],mute[2]); }
+    doc.roundedRect(chipX, chipY, chipW, chipH, 6, 6, "F");
+    doc.setFont("times","bold"); doc.setFontSize(15);
+    doc.text(tLabel, chipX + chipW/2, chipY + 20, {align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(196,209,220);
+    doc.text("Tiers: >=" + m.t1 + " T1  \u00B7  >=" + m.t2 + " T2  (HI-years)", PW-M-18, y+52, {align:"right"});
+    y += 60 + 20;
+
+    // flags
+    function flagBox(text){
+      var pad = 10, w = PW-2*M, innerW = w - pad*2 - 4;
+      doc.setFont("helvetica","normal"); doc.setFontSize(9);
+      var lines = doc.splitTextToSize(text, innerW);
+      var h = pad*2 + lines.length*12;
+      ensure(h+8);
+      doc.setFillColor(251,243,231); doc.roundedRect(M, y, w, h, 6, 6, "F");
+      doc.setFillColor(176,118,58); doc.rect(M, y, 3, h, "F");
+      doc.setTextColor(107,74,30);
+      doc.text(lines, M+pad+4, y+pad+9);
+      y += h + 10;
+    }
+    if(m.floorFlag) flagBox("Below the PFOA/PFOS floor. Neither PFOA nor PFOS reached its 4 ppt MCL at any residence \u2014 treat as a weak-exposure file and consider screening before tiering.");
+    if(m.lowConf)   flagBox("Low-confidence data. At least one residence uses a peak or single-sample reading rather than a time-weighted average. Verify against annual-average supplier data before relying on the tier.");
+
+    // caveats
+    ensure(90);
+    rule(line,0.6); y += 15;
+    function caveat(lead, body){
+      ensure(40);
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(ink[0],ink[1],ink[2]);
+      doc.text(lead, M, y);
+      var leadW = doc.getTextWidth(lead + " ");
+      doc.setFont("helvetica","normal"); doc.setTextColor(mute[0],mute[1],mute[2]);
+      var first = doc.splitTextToSize(body, PW-2*M-leadW);
+      var rest  = [];
+      doc.text(first[0]||"", M+leadW, y);
+      if(first.length>1){ rest = doc.splitTextToSize(first.slice(1).join(" "), PW-2*M); }
+      y += 12;
+      rest.forEach(function(ln){ ensure(13); doc.text(ln, M, y); y += 12; });
+      y += 8;
+    }
+    caveat("Exposure only.", "This scores contamination and duration, not injury. Combine with a diagnosis and causation axis before valuing a case.");
+    caveat("Regulatory status.", "PFOA and PFOS MCLs (4 ppt) are upheld. The 10 ppt individual limits and the Hazard Index are under a proposed EPA rescission (comment period closed July 20, 2026; final action expected 2026). Method rests on health-based references and standard mixtures toxicology.");
+
+    // page footers
+    var pages = doc.internal.getNumberOfPages();
+    for(var p=1; p<=pages; p++){
+      doc.setPage(p);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(mute[0],mute[1],mute[2]);
+      doc.text("MCH Law, PLLC  \u00B7  EI = sum(Ci / Ri) \u00D7 D, summed across residences", M, PH-22);
+      doc.text(p + " / " + pages, PW-M, PH-22, {align:"right"});
+    }
+
+    var safe = (state.claimant ? state.claimant : "PFAS").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"");
+    doc.save((safe || "PFAS") + "_exposure_index.pdf");
+  }
+
+  /* ---- init ---- */
+  document.getElementById("legend").innerHTML = legendHTML();
+  renderResidences();
+})();
+</script>
+</body>
+</html>
